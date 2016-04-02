@@ -1,10 +1,19 @@
-#include <Array.au3>
+#NoTrayIcon
 #include <Constants.au3>
 #include <WindowsConstants.au3>
 #include <StaticConstants.au3>
 #include <ProgressConstants.au3>
+#include <MsgBoxConstants.au3>
+#include <ButtonConstants.au3>
+#include <EditConstants.au3>
+#include <GUIConstantsEx.au3>
+#include <TrayConstants.au3> ; Required for the $TRAY_ICONSTATE_SHOW constant.#include <Array.au3>
+
+Opt("GUIOnEventMode", 1)
 
 OnAutoItExitRegister ( 'OnAutoItExit' )
+
+Opt("TrayMenuMode", 3) ; The default tray menu items will not be shown and items are not checked when selected.
 
 $HostDrive = StringLeft(@AutoItExe, 2)
 
@@ -116,13 +125,13 @@ Sleep(500)
 
 ; setup some desktop icons
 
-;$FileName = "P:\Start.exe"
-;$LinkFileName = @DesktopDir & "\Start Personal Desktop.lnk"
-;$WorkingDirectory = "P:\"
-;$Description = "This starts my mobile personal MojoPac desktop"
-;$State = @SW_SHOWNORMAL ;Can also be @SW_SHOWNORMAL or @SW_SHOWMINNOACTIVE
+$FileName = "P:\Utility\cmder\cmder.exe"
+$LinkFileName = @DesktopDir & "\Start Cmder prompt.lnk"
+$WorkingDirectory = "P:\"
+$Description = "This starts customised command prompt"
+$State = @SW_SHOWNORMAL ;Can also be @SW_SHOWNORMAL or @SW_SHOWMINNOACTIVE
 
-;FileCreateShortcut($FileName,$LinkFileName,$WorkingDirectory,"",$Description)
+FileCreateShortcut($FileName,$LinkFileName,$WorkingDirectory,"",$Description)
 
 ;$FileName = $drive&"\mobile-backup.exe"
 ;$LinkFileName = @DesktopDir & "\Mobile Backup.lnk"
@@ -194,9 +203,39 @@ Sleep(500)
 
 GUIDelete($hProgressSplash)
 
+; --- Setup Tray menu
+    Global $iSettings = TrayCreateMenu("Settings") ; Create a tray menu sub menu with two sub items.
+    Global $iDisplay = TrayCreateItem("Display", $iSettings)
+    Global $iPrinter = TrayCreateItem("Printer", $iSettings)
+    TrayCreateItem("") ; Create a separator line.
+
+    Local $idAbout = TrayCreateItem("About")
+    TrayCreateItem("") ; Create a separator line.
+
+    Local $idExit = TrayCreateItem("Exit")
+
+    TraySetState($TRAY_ICONSTATE_SHOW) ; Show the tray menu.
+
 ; wait until it finishes
 Sleep(16000)
-ProcessWaitClose("PortableAppsPlatform.exe")
+; ---ProcessWaitClose("PortableAppsPlatform.exe")
+
+While ProcessExists("PortableAppsPlatform.exe")
+
+   ; Poll the system tray menu
+      Switch TrayGetMsg()
+          Case $idAbout ; Display a message box about the AutoIt version and installation path of the AutoIt executable.
+              Global $hAbout = AboutForm()
+
+           Case $iDisplay, $iPrinter
+              MsgBox($MB_SYSTEMMODAL, "", "A sub menu item was selected from the tray menu.")
+
+          Case $idExit ; Exit the loop.
+              ExitLoop
+
+	  EndSwitch
+
+Wend
 
 $hProgressSplash = _SplashTextProgress("Portable Desktop",$HostDrive&"close_portal.jpg","... Locking Vault ...","C")
 
@@ -209,7 +248,7 @@ Func _SplashTextProgress($sText,$sPic,$sDesc,$sWhich) ;Creates a Splash Text Scr
       Case $sWhich = "O"
          $WinPos = 1
       Case $sWhich = "C"
-         $WinPos = -1        
+         $WinPos = -1
     EndSelect
     $hSplash = GUICreate("", 300, 460, $WinPos, $WinPos, BitOR($WS_POPUP, $WS_BORDER), BitOR($WS_EX_TOPMOST, $WS_EX_WINDOWEDGE, $WS_EX_TOOLWINDOW))
     GUICtrlCreatePic($sPic, 1, 50, 300, 360)
@@ -227,6 +266,32 @@ Func _SplashTextProgress($sText,$sPic,$sDesc,$sWhich) ;Creates a Splash Text Scr
     Return SetExtended($iProgressBar, $hSplash)
 EndFunc   ; end _SplashTextProgress
 
+Func AboutForm()
+   #Region ### START Koda GUI section ### Form=G:\Tools\Koda\Forms\frmAbout.kxf
+$frmAbout = GUICreate("About", 445, 348, 186, 149)
+$lblTitle = GUICtrlCreateLabel("PortableDesktop", 168, 24, 258, 41)
+GUICtrlSetFont(-1, 24, 800, 0, "Arial")
+$btnOK = GUICtrlCreateButton("OK", 344, 312, 75, 25)
+GUICtrlSetOnEvent(-1, "btnOKClick")
+$lblVersion = GUICtrlCreateLabel("Version 0.1", 168, 80, 57, 17)
+$grpConfig = GUICtrlCreateGroup("Configuration:", 32, 152, 385, 145)
+$txtHost = GUICtrlCreateInput(StringLeft(@AutoItExe, StringInStr(@AutoItExe, "\", 0, -1) - 1), 224, 192, 121, 21)
+GUICtrlSetState(-1, $GUI_DISABLE)
+$Label1 = GUICtrlCreateLabel("Host Drive:", 112, 192, 57, 17)
+$Label2 = GUICtrlCreateLabel("Portable Desktop:", 112, 232, 89, 17)
+$txtPortable = GUICtrlCreateInput($HostDrive, 224, 232, 121, 21)
+GUICtrlCreateGroup("", -99, -99, 1, 1)
+GUICtrlSetState(-1, $GUI_DISABLE)
+GUISetState(@SW_SHOW)
+#EndRegion ### END Koda GUI section ###
+
+Return $frmAbout
+EndFunc  ; end AboutForm
+
+Func btnOKClick()
+   GUIDelete($hAbout)
+EndFunc
+
 Func OnAutoItExit()
    Sleep(5000)
 
@@ -241,7 +306,7 @@ Func OnAutoItExit()
    if ProcessExists ( "firefox.exe" ) then
       ProcessClose ("firefox.exe")
    endif
-   
+
    if ProcessExists ( "SkypePortable.exe" ) then
       ProcessClose ("Skype.exe")
       ProcessClose ("SkypePortable.exe")
@@ -252,21 +317,21 @@ Func OnAutoItExit()
       ProcessClose ("JungleDiskMonitor.exe")
       Sleep(1000)
    endif
-   
+
    if ProcessExists ( "KeePass.exe" ) then
       ProcessClose ("KeePass.exe")
       Sleep(1000)
-   endif   
-   
+   endif
+
    if ProcessExists("Dropbox.exe") then
       ProcessClose ( "Dropbox.exe")
    endif
    if ProcessExists("DropboxPortableAHK.exe") then
       ProcessClose ( "DropboxPortableAHK.exe")
    endif
-      
+
    ; remove some desktop icons
-;   FileDelete(@DesktopDir & "\Start Personal Desktop.lnk")
+   FileDelete(@DesktopDir & "\Start Cmder prompt.lnk")
 ;   FileDelete(@DesktopDir & "\Mobile Backup.lnk")
 ;   FileDelete($WorkDrive & $My_Nimi_Places & "Tools\mRemote.lnk")
 ;   FileDelete($WorkDrive & $My_Nimi_Places & "Tools\jungledisk-usb.lnk")
@@ -293,6 +358,6 @@ Func OnAutoItExit()
    Sleep(2000)
 
    GUIDelete($hProgressSplash)
-   
+
 ;   ShellExecute($HostDrive&"\psshutdown.exe","-k -c")
 EndFunc      ; end OnAutoItExit()
